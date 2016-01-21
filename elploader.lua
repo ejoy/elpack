@@ -32,8 +32,8 @@ function loader.load(mod,elpfile)
 	end
 end
 
-local function elp_loader(data)
-	return elp.load(data[1], data[2])
+local function elp_loader(modname, data)
+	return elp.load(data, "@" .. modname)(modname)
 end
 
 local function load_file(m, name)
@@ -63,13 +63,13 @@ local function elp_searcher(mod)
 		return "\n\tno elp '" .. pack .. "'"
 	end
 
-	name = name.gsub("%.", "/")
+	name = name:gsub("%.", "/")
 	local block = load_file(m, name .. ".lua")
 	if not block then
 		return string.format("\n\tno file '%s' in elp '%s'", name, pack)
 	end
 
-	return elp_loader, { block, string.format("@[%s]%d.lua", mod, name) }
+	return elp_loader, block
 end
 
 local function main()

@@ -142,7 +142,7 @@ elp_load(lua_State *L) {
 		uint8_t k[16];
 		memset(k, 0, 16);
 		siphash(hash, (const uint8_t *)name, sz, k);
-		struct elp_file * ef = lookup_hash(elp, hash);
+		ef = lookup_hash(elp, hash);
 		if (ef == NULL)
 			return 0;
 		if (ef->offset == SALT_OFFSET) {
