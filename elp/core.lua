@@ -21,6 +21,10 @@ function elp.root()
 	error "init first"
 end
 
+function elp.config_path()
+	return elp.root() .. ".elp" .. sep
+end
+
 function elp.current_dir()
 	local path = lfs.currentdir()
 	local _, level = elp.root()

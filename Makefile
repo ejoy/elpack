@@ -30,7 +30,7 @@ lfs.dll : lfs/lfs.c
 	gcc $(CFLAGS) --shared -o $@ $^ -Ilfs -I/usr/local/include -L/usr/local/bin -llua53
 
 foobar.elp :
-	cd foobar && lua ../elp.lua init && lua ../elp.lua add hello.lua && lua ../elp.lua pack
+	cd foobar && lua ../elp.lua init && lua ../elp.lua add hello.lua && lua ../elp.lua pack && lua ../elp.lua add hello2.lua && lua ../elp.lua pack && lua ../elp.lua patch 0 1
 	
 clean :
 	rm elpack.dll lfs.dll

@@ -21,13 +21,16 @@
 	FILEINFO(s):
 	BYTES[8] NAMEHASH
 	DWORD OFFSET	, FFFFFFFF(add SALT)
-	DWORD CSIZE		, SALT32 (0 means REMOVE)
-	DWORD ADLER32
+	DWORD CSIZE		, SALT32 , 0 (patch)
+	DWORD ADLER32	, (patch index)
 */
 
 #define HEADER_SIZE 24
 #define INFO_SIZE 20
 #define HASH_SIZE 8
+
+#define SALT_OFFSET 0xffffffff
+#define PATCH_OFFSET 0xfffffffe
 
 struct elp_file {
 	uint8_t hash[HASH_SIZE];
@@ -90,6 +93,10 @@ elp_init(lua_State *L) {
 		}
 		elp->ef[i].offset = u8tole32(header + HASH_SIZE);
 		elp->ef[i].csize = u8tole32(header + HASH_SIZE + 4);
+		if (elp->ef[i].offset == SALT_OFFSET && elp->ef[i].csize == 0) {
+			elp->ef[i].offset = PATCH_OFFSET;
+			elp->ef[i].csize = u8tole32(header + HASH_SIZE + 8);
+		}
 		header += INFO_SIZE;
 	}
 	return 0;
@@ -123,29 +130,42 @@ elp_load(lua_State *L) {
 	}
 	size_t sz = 0;
 	const char * name = luaL_checklstring(L, 2, &sz);
-	uint8_t hash[HASH_SIZE];
-	uint8_t k[16];
-	memset(k, 0, 16);
-	siphash(hash, (const uint8_t *)name, sz, k);
-	struct elp_file * ef = lookup_hash(elp, hash);
-	if (ef == NULL)
-		return 0;
-	if (ef->offset == 0xffffffff) {
-		// try again, add salt.
-		uint8_t salt[4];
-		salt[0] = ef->csize & 0xff;
-		salt[1] = (ef->csize >> 8) & 0xff;
-		salt[2] = (ef->csize >> 16) & 0xff;
-		salt[3] = (ef->csize >> 24) & 0xff;
-		siphashsalt(k, (const char *)salt, 4);
+	struct elp_file *ef = NULL;
+	if (lua_type(L, 3) == LUA_TNUMBER) {
+		int index = lua_tointeger(L, 3);
+		if (index < 0 || index >= elp->n) {
+			return luaL_error(L, "Invalid index %d", index);
+		}
+		ef = &elp->ef[index];
+	} else {
+		uint8_t hash[HASH_SIZE];
+		uint8_t k[16];
+		memset(k, 0, 16);
 		siphash(hash, (const uint8_t *)name, sz, k);
-		ef = lookup_hash(elp, hash);
-		if (ef == NULL) {
+		struct elp_file * ef = lookup_hash(elp, hash);
+		if (ef == NULL)
 			return 0;
+		if (ef->offset == SALT_OFFSET) {
+			// try again, add salt.
+			uint8_t salt[4];
+			salt[0] = ef->csize & 0xff;
+			salt[1] = (ef->csize >> 8) & 0xff;
+			salt[2] = (ef->csize >> 16) & 0xff;
+			salt[3] = (ef->csize >> 24) & 0xff;
+			siphashsalt(k, (const char *)salt, 4);
+			siphash(hash, (const uint8_t *)name, sz, k);
+			ef = lookup_hash(elp, hash);
+			if (ef == NULL) {
+				return 0;
+			}
+			if (ef->offset == SALT_OFFSET) {
+				return 0;
+			}
 		}
-		if (ef->offset == 0xffffffff) {
-			return 0;
-		}
+	}
+	if (ef->offset == PATCH_OFFSET) {
+		lua_pushinteger(L, ef->csize);
+		return 1;
 	}
 	if (fseek(elp->f, ef->offset + HEADER_SIZE, SEEK_SET) != 0) {
 		return luaL_error(L, "Can't seek %s", name);
