@@ -23,13 +23,13 @@ local lfs = require "lfs"
 
 local sep = string.match (package.config, "[^\n]+")
 
-local function conflict(names, hash_name)
-	local salt = elpack.randomkey():sub(1,4)
+local function conflict(names, hash_name, salt_id)
+	local salt = string.pack("<4I", salt_id)
 	local tmp = {}
 	for _, v in ipairs(names) do
 		local hash = elpack.hash64(v,salt)
 		if tmp[hash] or hash_name[hash] then
-			return conflict(names, hash_name)
+			return conflict(names, hash_name, salt_id + 1)
 		else
 			tmp[hash] = v
 		end
@@ -62,7 +62,7 @@ local function namehash(names)
 			for i, cf in ipairs(v) do
 				print(i,cf)
 			end
-			hash_conflict[hash] = conflict(v, hash_name)
+			hash_conflict[hash] = conflict(v, hash_name, 0x12345678)
 		end
 	end
 	return hash_name, hash_conflict
