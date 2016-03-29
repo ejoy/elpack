@@ -73,7 +73,7 @@ local function find_path(cache, path)
 		cache[path] = path
 		return path
 	else
-		local upath, name = fullname:match("(.+)/([^/]+)$")
+		local upath, name = path:match("(.+)/([^/]+)$")
 		if not upath then
 			upath = "."
 			name = path
